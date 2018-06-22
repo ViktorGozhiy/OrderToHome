@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#323232</color>
+    <color name="colorPrimaryDark">#000000</color>
+    <color name="colorAccent">#FF4081</color>
+    <color name="colorTitleText">#000000</color>
+    <color name="colorContentText">#777777</color>
+    <color name="colorWeightText">#BBBBBB</color>
+    <color name="colorPriceText">#d0021b</color>
+    <color name="colorStickerDiscount">#f5a623</color>
+    <color name="colorStickerNew">#7ed321</color>
+    <color name="colorStickerHit">#d0021b</color>
+    <color name="colorBarText">#FFFFFF</color>
+    <color name="colorAppBackground">#eeeeee</color>
+</resources>
