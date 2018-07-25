@@ -15,6 +15,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.firebase.ui.database.FirebaseRecyclerAdapter;
@@ -26,96 +27,46 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
+import butterknife.BindView;
 import comviktorgozhiy.github.ordertohome.MainActivity;
 import comviktorgozhiy.github.ordertohome.Models.Order;
+import comviktorgozhiy.github.ordertohome.Presenters.CategoryMenuPresenter;
 import comviktorgozhiy.github.ordertohome.R;
 import comviktorgozhiy.github.ordertohome.Utils.BadgeUtils;
 import comviktorgozhiy.github.ordertohome.Utils.UserUtils;
 import comviktorgozhiy.github.ordertohome.ViewHolders.FirebaseProductViewHolder;
 import comviktorgozhiy.github.ordertohome.Models.Product;
 
-public class CategoryMenu extends AppCompatActivity {
+public class CategoryMenu extends AppCompatActivity implements CategoryMenuPresenter.CategoryMenuCallback {
 
-    private FirebaseDatabase fb;
-    private FirebaseRecyclerAdapter<Product, FirebaseProductViewHolder> adapter;
-    private RecyclerView recyclerView;
     private String category;
     private int sortParameter = 0;
-    private String uid;
+    private CategoryMenuPresenter presenter;
+    private RecyclerView recyclerView;
+    private ProgressBar progressBar;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_category_menu);
-        fb = FirebaseDatabase.getInstance();
-        uid = UserUtils.getUid(this, FirebaseAuth.getInstance().getCurrentUser());
-        recyclerView = findViewById(R.id.recyclerView);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setDisplayShowHomeEnabled(true);
+        recyclerView = findViewById(R.id.recyclerView);
+        progressBar = findViewById(R.id.progressBar);
         category = getIntent().getStringExtra("category");
         setTitle(category);
-        setupList(category, sortParameter);
-    }
-
-    private void setupList(final String category, final int sortParameter) {
-        Query query;
-        switch (sortParameter) {
-            case 0: // name
-                query = fb.getReference("menu").child(category).child("content").orderByChild("title");
-                break;
-            case 1: // weight
-                query = fb.getReference("menu").child(category).child("content").orderByChild("weight");
-                break;
-            case 2: // price
-                query = fb.getReference("menu").child(category).child("content").orderByChild("price");
-                break;
-            default:
-                query = fb.getReference("menu").child(category).child("content");
-                break;
-        }
-        FirebaseRecyclerOptions<Product> options = new FirebaseRecyclerOptions.Builder<Product>()
-                .setQuery(query, Product.class)
-                .build();
-        adapter = new FirebaseRecyclerAdapter<Product, FirebaseProductViewHolder>(options) {
-            @Override
-            protected void onBindViewHolder(@NonNull FirebaseProductViewHolder holder, int position, @NonNull Product model) {
-                holder.bindProduct(model, uid, category, getApplicationContext());
-            }
-
-            @NonNull
-            @Override
-            public FirebaseProductViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-                View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.product_item_card, parent, false);
-                FirebaseProductViewHolder firebaseProductViewHolder = new FirebaseProductViewHolder(v);
-                firebaseProductViewHolder.setOnClickListener(new FirebaseProductViewHolder.ClickListener() {
-                    @Override
-                    public void onItemClick(View view, int position) {
-                        TextView tvTitle = view.findViewById(R.id.tvTitle);
-                        String productTitle = tvTitle.getText().toString();
-                        Intent intent = new Intent(CategoryMenu.this, ProductView.class);
-                        intent.putExtra("productTitle", productTitle);
-                        intent.putExtra("category", category);
-                        startActivityForResult(intent, MainActivity.ORDER_REQEST_CODE);
-                    }
-                });
-                return firebaseProductViewHolder;
-            }
-        };
-        adapter.notifyDataSetChanged();
-        recyclerView.setHasFixedSize(true);
-        recyclerView.setItemViewCacheSize(10);
-        recyclerView.setDrawingCacheEnabled(true);
-        recyclerView.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_HIGH);
-        recyclerView.setLayoutManager(new StaggeredGridLayoutManager(1, LinearLayoutManager.VERTICAL));
-        recyclerView.setAdapter(adapter);
-        adapter.startListening();
+        recyclerView.setVisibility(View.VISIBLE);
+        presenter = new CategoryMenuPresenter(this);
+        presenter.attachView(this);
+        presenter.setupList(category, sortParameter, getApplicationContext());
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.cart_sort, menu);
         MenuItem cart = menu.findItem(R.id.action_cart);
-        getCurrentOrderCounter((LayerDrawable) cart.getIcon());
+        presenter.getCurrentOrderCounter((LayerDrawable) cart.getIcon(), this);
         //setBadgeCount(this, icon, "2");
         return super.onCreateOptionsMenu(menu);
     }
@@ -141,37 +92,13 @@ public class CategoryMenu extends AppCompatActivity {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 sortParameter = i;
-                setupList(category, sortParameter);
+                presenter.setupList(category, sortParameter, getApplicationContext());
                 dialogInterface.dismiss();
             }
         });
         builder.setCancelable(true);
         AlertDialog dialog = builder.create();
         dialog.show();
-    }
-
-    private void getCurrentOrderCounter(final LayerDrawable icon) {
-        Query query = fb.getReference("clients")
-                .child(uid)
-                .child("currentOrder");
-        query.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                int i = 0;
-                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                    Order.Item item = snapshot.getValue(Order.Item.class);
-                    if (item != null) {
-                        i = i + item.getQuantity();
-                    }
-                }
-                BadgeUtils.setBadgeCount(CategoryMenu.this, icon, Integer.toString(i));
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-
-            }
-        });
     }
 
     @Override
@@ -183,12 +110,43 @@ public class CategoryMenu extends AppCompatActivity {
     @Override
     public void onStart() {
         super.onStart();
-        adapter.startListening();
+        presenter.startListening();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        adapter.stopListening();
+        presenter.stopListening();
+    }
+
+    @Override
+    public void setAdapter(RecyclerView.Adapter adapter) {
+        recyclerView.setHasFixedSize(true);
+        recyclerView.setItemViewCacheSize(10);
+        recyclerView.setDrawingCacheEnabled(true);
+        recyclerView.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_HIGH);
+        recyclerView.setLayoutManager(new StaggeredGridLayoutManager(1, LinearLayoutManager.VERTICAL));
+        recyclerView.setAdapter(adapter);
+        presenter.startListening();
+    }
+
+    @Override
+    public void setVisibleProgressbar(boolean flag) {
+        if (flag) progressBar.setVisibility(View.VISIBLE);
+        else progressBar.setVisibility(View.GONE);
+    }
+
+    @Override
+    public void setProduct(String productTitle, String category) {
+        Intent intent = new Intent(CategoryMenu.this, ProductView.class);
+        intent.putExtra("productTitle", productTitle);
+        intent.putExtra("category", category);
+        startActivityForResult(intent, MainActivity.ORDER_REQEST_CODE);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        presenter.deattachView();
     }
 }
