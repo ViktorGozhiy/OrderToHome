@@ -2,7 +2,6 @@ package comviktorgozhiy.github.ordertohome.UI.Profile;
 
 
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
@@ -20,7 +19,6 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
@@ -36,7 +34,12 @@ import com.google.firebase.auth.FirebaseAuthSettings;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
 
+import comviktorgozhiy.github.ordertohome.MainActivity;
+import comviktorgozhiy.github.ordertohome.Models.ClientUser;
 import comviktorgozhiy.github.ordertohome.R;
+import comviktorgozhiy.github.ordertohome.Utils.FirebaseUtils;
+
+import static android.app.Activity.RESULT_OK;
 
 
 public class Authentication extends Fragment implements View.OnClickListener {
@@ -60,7 +63,7 @@ public class Authentication extends Fragment implements View.OnClickListener {
         View v = inflater.inflate(R.layout.fragment_authentication, container, false);
         getActivity().setTitle(R.string.profile);
         tvTerms = v.findViewById(R.id.tvTerms);
-        tvLogin = v.findViewById(R.id.tvLogin);
+        tvLogin = v.findViewById(R.id.tvSignIn);
         btnPhone = v.findViewById(R.id.btnPhone);
         ivFacebook = v.findViewById(R.id.ivFacebook);
         ivTwitter = v.findViewById(R.id.ivTwitter);
@@ -89,8 +92,8 @@ public class Authentication extends Fragment implements View.OnClickListener {
             case R.id.tvTerms:
                 showTermsOfUse();
                 break;
-            case R.id.tvLogin:
-                if (classicLogin() == AUTH_OK) showProfile(null);
+            case R.id.tvSignIn:
+                classicSignIn();
                 break;
             case R.id.btnPhone:
                 showPhoneNumDialog();
@@ -111,8 +114,9 @@ public class Authentication extends Fragment implements View.OnClickListener {
 
     }
 
-    private int classicLogin() {
-        return 0;
+    private void classicSignIn() {
+        Intent intent = new Intent(getActivity(), ClassicSignIn.class);
+        startActivityForResult(intent, MainActivity.LOGIN_REQUEST_CODE);
     }
 
     private void phoneLogin() {
@@ -145,6 +149,10 @@ public class Authentication extends Fragment implements View.OnClickListener {
                 Log.w("GOOGLE SIGN IN", "Google sign in failed", e);
             }
         }
+        if (requestCode == MainActivity.LOGIN_REQUEST_CODE && resultCode == RESULT_OK) {
+            FirebaseUser user = auth.getCurrentUser();
+            showProfile(user);
+        }
     }
 
     private void firebaseAuthWithGoogle(GoogleSignInAccount acct) {
@@ -168,7 +176,7 @@ public class Authentication extends Fragment implements View.OnClickListener {
     }
 
     private void showProfile(FirebaseUser user) {
-        Toast.makeText(getActivity(), "USer: " + user.getDisplayName() + " - " + user.getUid(), Toast.LENGTH_SHORT).show();
+        getActivity().getFragmentManager().beginTransaction().replace(R.id.container_main, new Profile()).commit();
     }
     private void showPhoneNumDialog() {
         LayoutInflater inflater = LayoutInflater.from(getActivity());

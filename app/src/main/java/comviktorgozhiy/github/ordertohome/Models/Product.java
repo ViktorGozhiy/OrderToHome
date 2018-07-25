@@ -5,13 +5,12 @@ public class Product {
     private String title;
     private String content;
     private int weight;
-    private int price;
-    private int oldPrice;
+    private float price;
+    private float oldPrice;
     private boolean hitLabel;
     private boolean newLabel;
     private int discount;
     private String imagePath;
-    private String monetaryUnit;
     private String weightUnit;
 
     public Product() {
@@ -49,11 +48,11 @@ public class Product {
         this.weight = weight;
     }
 
-    public int getPrice() {
+    public float getPrice() {
         return price;
     }
 
-    public void setPrice(int price) {
+    public void setPrice(float price) {
         this.price = price;
     }
 
@@ -81,11 +80,11 @@ public class Product {
         this.discount = discount;
     }
 
-    public int getOldPrice() {
+    public float getOldPrice() {
         return oldPrice;
     }
 
-    public void setOldPrice(int oldPrice) {
+    public void setOldPrice(float oldPrice) {
         this.oldPrice = oldPrice;
     }
 
@@ -95,14 +94,6 @@ public class Product {
 
     public void setImagePath(String imagePath) {
         this.imagePath = imagePath;
-    }
-
-    public String getMonetaryUnit() {
-        return monetaryUnit;
-    }
-
-    public void setMonetaryUnit(String monetaryUnit) {
-        this.monetaryUnit = monetaryUnit;
     }
 
     public String getWeightUnit() {

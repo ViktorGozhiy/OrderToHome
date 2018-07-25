@@ -1,9 +1,7 @@
 package comviktorgozhiy.github.ordertohome.UI;
 
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AlertDialog;
@@ -18,15 +16,21 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.firebase.ui.database.FirebaseRecyclerAdapter;
 import com.firebase.ui.database.FirebaseRecyclerOptions;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
+import com.google.firebase.database.ValueEventListener;
 
+import comviktorgozhiy.github.ordertohome.MainActivity;
+import comviktorgozhiy.github.ordertohome.Models.Order;
 import comviktorgozhiy.github.ordertohome.R;
-import comviktorgozhiy.github.ordertohome.Utils.BadgeDrawable;
+import comviktorgozhiy.github.ordertohome.Utils.BadgeUtils;
+import comviktorgozhiy.github.ordertohome.Utils.UserUtils;
 import comviktorgozhiy.github.ordertohome.ViewHolders.FirebaseProductViewHolder;
 import comviktorgozhiy.github.ordertohome.Models.Product;
 
@@ -37,12 +41,14 @@ public class CategoryMenu extends AppCompatActivity {
     private RecyclerView recyclerView;
     private String category;
     private int sortParameter = 0;
+    private String uid;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_category_menu);
         fb = FirebaseDatabase.getInstance();
+        uid = UserUtils.getUid(this, FirebaseAuth.getInstance().getCurrentUser());
         recyclerView = findViewById(R.id.recyclerView);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setDisplayShowHomeEnabled(true);
@@ -73,7 +79,7 @@ public class CategoryMenu extends AppCompatActivity {
         adapter = new FirebaseRecyclerAdapter<Product, FirebaseProductViewHolder>(options) {
             @Override
             protected void onBindViewHolder(@NonNull FirebaseProductViewHolder holder, int position, @NonNull Product model) {
-                holder.bindProduct(model);
+                holder.bindProduct(model, uid, category, getApplicationContext());
             }
 
             @NonNull
@@ -86,10 +92,10 @@ public class CategoryMenu extends AppCompatActivity {
                     public void onItemClick(View view, int position) {
                         TextView tvTitle = view.findViewById(R.id.tvTitle);
                         String productTitle = tvTitle.getText().toString();
-                        Intent intent = new Intent(CategoryMenu.this, ProductInfo.class);
+                        Intent intent = new Intent(CategoryMenu.this, ProductView.class);
                         intent.putExtra("productTitle", productTitle);
                         intent.putExtra("category", category);
-                        startActivity(intent);
+                        startActivityForResult(intent, MainActivity.ORDER_REQEST_CODE);
                     }
                 });
                 return firebaseProductViewHolder;
@@ -97,6 +103,9 @@ public class CategoryMenu extends AppCompatActivity {
         };
         adapter.notifyDataSetChanged();
         recyclerView.setHasFixedSize(true);
+        recyclerView.setItemViewCacheSize(10);
+        recyclerView.setDrawingCacheEnabled(true);
+        recyclerView.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_HIGH);
         recyclerView.setLayoutManager(new StaggeredGridLayoutManager(1, LinearLayoutManager.VERTICAL));
         recyclerView.setAdapter(adapter);
         adapter.startListening();
@@ -106,9 +115,9 @@ public class CategoryMenu extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.cart_sort, menu);
         MenuItem cart = menu.findItem(R.id.action_cart);
-        LayerDrawable icon = (LayerDrawable) cart.getIcon();
-        setBadgeCount(this, icon, "2");
-        return true;
+        getCurrentOrderCounter((LayerDrawable) cart.getIcon());
+        //setBadgeCount(this, icon, "2");
+        return super.onCreateOptionsMenu(menu);
     }
 
     @Override
@@ -121,7 +130,8 @@ public class CategoryMenu extends AppCompatActivity {
     }
 
     private void openCart() {
-        Toast.makeText(this, "cart", Toast.LENGTH_SHORT).show();
+        setResult(RESULT_OK);
+        finish();
     }
 
     private void drawSortDialog() {
@@ -140,21 +150,34 @@ public class CategoryMenu extends AppCompatActivity {
         dialog.show();
     }
 
-    public static void setBadgeCount(Context context, LayerDrawable icon, String count) {
+    private void getCurrentOrderCounter(final LayerDrawable icon) {
+        Query query = fb.getReference("clients")
+                .child(uid)
+                .child("currentOrder");
+        query.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                int i = 0;
+                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                    Order.Item item = snapshot.getValue(Order.Item.class);
+                    if (item != null) {
+                        i = i + item.getQuantity();
+                    }
+                }
+                BadgeUtils.setBadgeCount(CategoryMenu.this, icon, Integer.toString(i));
+            }
 
-        BadgeDrawable badge;
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
 
-        // Reuse drawable if possible
-        Drawable reuse = icon.findDrawableByLayerId(R.id.badge);
-        if (reuse != null && reuse instanceof BadgeDrawable) {
-            badge = (BadgeDrawable) reuse;
-        } else {
-            badge = new BadgeDrawable(context);
-        }
+            }
+        });
+    }
 
-        badge.setCount(count);
-        icon.mutate();
-        icon.setDrawableByLayerId(R.id.badge, badge);
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == MainActivity.ORDER_REQEST_CODE && resultCode == RESULT_OK) openCart();
     }
 
     @Override
